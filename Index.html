@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>PlaceSwipe · Andrew's Places</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg:#0e0e0e; --card:#1a1a1a; --border:#272727;
+  --accent:#e8c97a; --accent2:#c8a55a;
+  --text:#f0ede8; --muted:#777;
+  --like:#4ade80; --nope:#f87171; --r:20px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden;}
+
+header{width:100%;max-width:480px;padding:20px 20px 10px;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:var(--accent);}
+.logo em{font-style:italic;font-weight:400;}
+.pill{background:var(--card);border:1px solid var(--border);border-radius:100px;padding:5px 12px;font-size:.72rem;color:var(--muted);}
+.pill b{color:var(--accent);}
+
+#setup{width:100%;max-width:480px;padding:24px 20px 48px;display:flex;flex-direction:column;gap:18px;animation:fadeUp .4s ease;}
+.hero{font-family:'Playfair Display',serif;font-size:1.9rem;line-height:1.2;}
+.hero em{font-style:italic;color:var(--accent);}
+.sub{color:var(--muted);font-size:.87rem;line-height:1.65;margin-top:6px;}
+.box{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:12px;}
+.box-lbl{font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);}
+
+.dist-num{font-family:'Playfair Display',serif;font-size:2.6rem;font-weight:700;color:var(--accent);line-height:1;}
+.dist-num span{font-size:1rem;color:var(--muted);margin-left:4px;}
+input[type=range]{width:100%;height:3px;appearance:none;background:#333;border-radius:3px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 0 0 4px rgba(232,201,122,.15);}
+.unit-row{display:flex;gap:8px;}
+.unit-btn{flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:.82rem;cursor:pointer;transition:all .18s;}
+.unit-btn.on{background:var(--accent);color:#0e0e0e;border-color:var(--accent);font-weight:500;}
+
+.drop{border:2px dashed var(--border);border-radius:14px;padding:20px 16px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;font-size:.85rem;color:var(--muted);position:relative;}
+.drop:hover,.drop.over{border-color:var(--accent);background:rgba(232,201,122,.04);color:var(--accent);}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.drop-sub{font-size:.72rem;margin-top:5px;opacity:.7;}
+.drop-ok{font-size:.8rem;color:var(--like);margin-top:6px;font-style:italic;}
+
+.big-btn{width:100%;padding:14px;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.93rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .18s;}
+.gps-btn{background:var(--accent);color:#0e0e0e;}
+.gps-btn:hover:not(:disabled){background:var(--accent2);transform:translateY(-1px);}
+.gps-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.gps-btn.success{background:var(--like);}
+.start-btn{background:var(--like);color:#0e0e0e;margin-top:4px;display:none;}
+.start-btn:hover{filter:brightness(1.1);}
+
+.st{text-align:center;font-size:.8rem;color:var(--muted);min-height:18px;}
+.st.ok{color:var(--like);} .st.err{color:var(--nope);}
+
+.or{display:flex;align-items:center;gap:10px;font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+.or::before,.or::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.row{display:flex;gap:8px;}
+.ti{flex:1;min-width:0;background:#111;border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.85rem;outline:none;transition:border-color .2s;}
+.ti:focus{border-color:rgba(232,201,122,.5);}
+.ti::placeholder{color:#444;}
+.sb{padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:.85rem;cursor:pointer;white-space:nowrap;transition:all .18s;}
+.sb:hover{border-color:var(--accent);}
+.gb{padding:10px 16px;background:var(--accent);border:none;border-radius:10px;color:#0e0e0e;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:500;cursor:pointer;transition:background .18s;white-space:nowrap;}
+.gb:hover{background:var(--accent2);}
+
+#sug{flex-direction:column;border-radius:12px;overflow:hidden;border:1px solid var(--border);display:none;}
+.sg{padding:11px 14px;cursor:pointer;font-size:.85rem;border-bottom:1px solid var(--border);transition:background .15s;display:flex;flex-direction:column;gap:2px;}
+.sg:last-child{border-bottom:none;}
+.sg:hover{background:rgba(232,201,122,.07);}
+.sg-sub{font-size:.72rem;color:var(--muted);}
+
+/* app */
+.prog-bar{width:calc(100% - 40px);height:2px;background:#222;border-radius:2px;margin:6px 20px 0;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:2px;transition:width .4s ease;}
+.live{width:calc(100% - 40px);display:flex;align-items:center;gap:10px;margin:8px 20px 0;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:9px 14px;font-size:.78rem;color:var(--muted);}
+.live input{flex:1;}
+.lv{color:var(--accent);font-weight:500;white-space:nowrap;min-width:50px;text-align:right;}
+
+.card-area{width:100%;max-width:480px;padding:10px 20px 0;position:relative;height:500px;}
+.pc{position:absolute;left:20px;right:20px;height:468px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:grab;user-select:none;transform-origin:50% 110%;}
+.pc:active{cursor:grabbing;}
+.c1{z-index:3;} .c2{z-index:2;transform:scale(.955) translateY(12px);filter:brightness(.65);transition:transform .3s,filter .3s;} .c3{z-index:1;transform:scale(.91) translateY(24px);filter:brightness(.4);transition:transform .3s,filter .3s;}
+.cm{width:100%;height:210px;position:relative;overflow:hidden;}
+.cm .leaflet-container{width:100%;height:100%;z-index:0;}
+/* hide Leaflet attribution to save space */
+.cm .leaflet-control-attribution{display:none;}
+.cm .leaflet-control-zoom{display:none;}
+.cb{position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);border:1px solid rgba(232,201,122,.25);border-radius:7px;padding:3px 9px;font-size:.68rem;color:var(--accent);letter-spacing:.8px;text-transform:uppercase;pointer-events:none;z-index:999;}
+.db{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:7px;padding:4px 9px;font-size:.72rem;color:var(--text);display:flex;align-items:center;gap:4px;pointer-events:none;z-index:999;}
+.cd{padding:18px 20px 14px;display:flex;flex-direction:column;gap:9px;}
+.cn{font-family:'Playfair Display',serif;font-size:1.45rem;font-weight:700;line-height:1.2;}
+.cc{display:inline-flex;align-items:center;gap:5px;background:rgba(232,201,122,.1);border:1px solid rgba(232,201,122,.2);border-radius:100px;padding:3px 11px;font-size:.72rem;color:var(--accent);width:fit-content;}
+.cs{font-size:.8rem;color:var(--muted);}
+.cl{font-size:.78rem;color:var(--accent);text-decoration:none;opacity:.75;transition:opacity .2s;display:inline-flex;align-items:center;gap:5px;}
+.cl:hover{opacity:1;}
+.sl,.sn{position:absolute;border-radius:7px;padding:5px 14px;font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;opacity:0;pointer-events:none;}
+.sl{top:28px;left:18px;border:3px solid var(--like);color:var(--like);transform:rotate(-14deg);}
+.sn{top:28px;right:18px;border:3px solid var(--nope);color:var(--nope);transform:rotate(14deg);}
+
+.acts{display:flex;align-items:center;justify-content:center;gap:16px;padding:18px 20px 8px;max-width:480px;width:100%;}
+.ab{display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;cursor:pointer;transition:all .18s;font-size:1.3rem;}
+.bsk{width:56px;height:56px;background:rgba(248,113,113,.1);border:2px solid rgba(248,113,113,.3);color:var(--nope);}
+.bsk:hover{background:rgba(248,113,113,.22);transform:scale(1.06);}
+.bsv{width:66px;height:66px;background:rgba(74,222,128,.1);border:2px solid rgba(74,222,128,.3);color:var(--like);font-size:1.6rem;}
+.bsv:hover{background:rgba(74,222,128,.22);transform:scale(1.06);}
+.bm,.bu{width:46px;height:46px;background:rgba(255,255,255,.04);border:2px solid var(--border);color:var(--muted);font-size:1rem;text-decoration:none;}
+.bm{color:var(--accent);background:rgba(232,201,122,.07);border-color:rgba(232,201,122,.2);}
+.bm:hover,.bu:hover{transform:scale(1.06);}
+
+.ec{position:absolute;left:20px;right:20px;height:468px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:36px;}
+.ei{font-size:3rem;} .et{font-family:'Playfair Display',serif;font-size:1.75rem;color:var(--accent);} .es{color:var(--muted);font-size:.88rem;line-height:1.65;}
+.rb{margin-top:6px;padding:11px 26px;background:var(--accent);color:#0e0e0e;border:none;border-radius:100px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:500;cursor:pointer;transition:background .18s;}
+.rb:hover{background:var(--accent2);}
+
+.lw{width:100%;max-width:480px;padding:4px 20px 40px;}
+.lh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.ll{font-size:.7rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);}
+.lc{font-size:.7rem;color:var(--accent);}
+.lch{display:flex;flex-wrap:wrap;gap:7px;}
+.ch{background:var(--card);border:1px solid var(--border);border-radius:100px;padding:5px 12px;font-size:.75rem;color:var(--text);display:flex;align-items:center;gap:5px;text-decoration:none;transition:all .15s;}
+.ch:hover{border-color:var(--accent);color:var(--accent);}
+.chd{width:5px;height:5px;border-radius:50%;background:var(--like);flex-shrink:0;}
+
+#app{display:none;width:100%;flex-direction:column;align-items:center;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes swipeL{to{transform:translateX(-130%) rotate(-22deg);opacity:0}}
+@keyframes swipeR{to{transform:translateX(130%) rotate(22deg);opacity:0}}
+.fl{animation:swipeL .32s ease forwards;}
+.fr{animation:swipeR .32s ease forwards;}
+.dots{display:inline-flex;gap:4px;}
+.dots span{width:6px;height:6px;border-radius:50%;background:#0e0e0e;animation:dot .9s infinite;}
+.dots span:nth-child(2){animation-delay:.18s;} .dots span:nth-child(3){animation-delay:.36s;}
+@keyframes dot{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+::-webkit-scrollbar{width:3px;} ::-webkit-scrollbar-thumb{background:#333;border-radius:2px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">place<em>swipe</em></div>
+  <div class="pill" id="hdr" style="display:none"><b id="ss">0</b> saved · <b id="sl">0</b> left</div>
+</header>
+
+<div id="setup">
+  <div>
+    <div class="hero">Find places<br><em>near you</em></div>
+    <p class="sub">Upload your Google Maps CSV, pick a radius, set your location, and start swiping.</p>
+  </div>
+
+  <!-- CSV -->
+  <div class="box">
+    <div class="box-lbl">1 · Your places CSV</div>
+    <div class="drop" id="dz" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event)">
+      <input type="file" accept=".csv" onchange="loadCSV(this.files[0])">
+      <div>📂 Tap or drag your <strong>Favorite places.csv</strong></div>
+      <div class="drop-sub">From Google Takeout → Saved</div>
+      <div class="drop-ok" id="dok"></div>
+    </div>
+  </div>
+
+  <!-- Distance -->
+  <div class="box">
+    <div class="box-lbl">2 · Radius</div>
+    <div class="dist-num" id="dn">10 <span>km</span></div>
+    <input type="range" id="ds" min="1" max="200" value="10" oninput="onDS(this.value)">
+    <div class="unit-row">
+      <button class="unit-btn on" id="bkm" onclick="setUnit('km')">Kilometres</button>
+      <button class="unit-btn"    id="bmi" onclick="setUnit('mi')">Miles</button>
+    </div>
+  </div>
+
+  <!-- Location -->
+  <div class="box">
+    <div class="box-lbl">3 · Your location</div>
+
+    <button class="big-btn gps-btn" id="gpsbtn" onclick="doGPS()">
+      <span>📍</span> Detect my location automatically
+    </button>
+    <div class="st" id="gst"></div>
+
+    <div class="or"><span>or search a city / address</span></div>
+    <div class="row">
+      <input id="ci" class="ti" type="text" placeholder="City, UK postcode or US zip — e.g. Edinburgh, EH1 1JJ, 10001…" autocomplete="off" onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="sb" onclick="doSearch()">Search</button>
+    </div>
+    <div id="sug"></div>
+    <div class="st" id="sst"></div>
+
+
+    <button class="big-btn start-btn" id="stbtn" onclick="startApp()">
+      <span>▶</span> Start Swiping
+    </button>
+  </div>
+</div>
+
+<div id="app">
+  <div class="prog-bar"><div class="prog-fill" id="pg"></div></div>
+  <div class="live">
+    <span>📍</span>
+    <input type="range" id="lvs" min="1" max="200" value="10" oninput="onLS(this.value)">
+    <span class="lv" id="lvv">5 km</span>
+  </div>
+  <div class="card-area" id="ca"></div>
+  <div class="acts" id="acts" style="display:none">
+    <button class="ab bu" onclick="undo()" title="Undo">↩</button>
+    <button class="ab bsk" onclick="swipe('left')"  title="Skip">✕</button>
+    <button class="ab bsv" onclick="swipe('right')" title="Save">♥</button>
+    <a class="ab bm" id="mb" href="#" target="_blank" title="Maps">🗺</a>
+  </div>
+  <div class="lw" id="lw" style="display:none">
+    <div class="lh"><span class="ll">Saved places</span><span class="lc" id="lc"></span></div>
+    <div class="lch" id="lch"></div>
+  </div>
+</div>
+
+<script>
+// ── S2 DECODER ──────────────────────────────────────────
+const PIJ=[[0,1,3,2],[0,2,3,1],[3,2,0,1],[3,1,0,2]];
+const POR=[1,0,0,3];
+function s2ll(hex){
+  const s=hex.replace(/^0x/i,'').padStart(16,'0');
+  const hi=parseInt(s.slice(0,8),16), lo=parseInt(s.slice(8,16),16);
+  const face=(hi>>>29)&7; if(face>5)return null;
+  // Use unsigned-safe arithmetic throughout — avoid << which truncates to signed 32-bit
+  // ph: bits 60..31 of cell_id = top 29 bits of hi shifted left 1, plus top bit of lo
+  const ph=((hi&0x1FFFFFFF)*2+(lo>>>31))&0x3FFFFFFF;
+  // pl: bits 30..1 of cell_id
+  const pl=Math.floor(lo/2)&0x3FFFFFFF;
+  let or=face&1,i=0,j=0;
+  // Use *2 instead of <<1 to avoid signed 32-bit overflow in i,j accumulation
+  for(let k=14;k>=0;k--){const p=(ph>>>(2*k))&3,ij=PIJ[or][p];i=i*2+((ij>>>1)&1);j=j*2+(ij&1);or^=POR[p];}
+  for(let k=14;k>=0;k--){const p=(pl>>>(2*k))&3,ij=PIJ[or][p];i=i*2+((ij>>>1)&1);j=j*2+(ij&1);or^=POR[p];}
+  const su=s=>s>=.5?(4*s*s-1)/3:(1-4*(1-s)*(1-s))/3;
+  const u=su((2*i+1)/2147483648),v=su((2*j+1)/2147483648);
+  const F=[[1,u,v],[-u,1,v],[-u,-v,1],[-1,-v,-u],[v,-1,-u],[v,u,-1]];
+  let[x,y,z]=F[face],n=Math.sqrt(x*x+y*y+z*z);x/=n;y/=n;z/=n;
+  return{lat:Math.asin(Math.max(-1,Math.min(1,z)))*180/Math.PI,lng:Math.atan2(y,x)*180/Math.PI};
+}
+function hexUrl(url){const m=url.match(/!1s(0x[0-9a-fA-F]+):/i);return m?m[1]:null;}
+
+// ── CSV ─────────────────────────────────────────────────
+function parseCSV(text){
+  const lines=text.split('\n'),out=[],seen=new Set();
+  for(let i=1;i<lines.length;i++){
+    const line=lines[i].trim();if(!line)continue;
+    const cols=[];let cur='',q=false;
+    for(const ch of line){if(ch==='"')q=!q;else if(ch===','&&!q){cols.push(cur);cur='';}else cur+=ch;}
+    cols.push(cur);
+    const name=(cols[0]||'').trim(),url=(cols[2]||'').trim();
+    if(!name||!url||!url.includes('google.com/maps')||seen.has(name))continue;
+    seen.add(name);
+    const hex=hexUrl(url);if(!hex)continue;
+    const ll=s2ll(hex);if(!ll)continue;
+    out.push({name,url,lat:ll.lat,lng:ll.lng});
+  }
+  return out;
+}
+
+// ── STATE ────────────────────────────────────────────────
+let uLat=null,uLng=null,dKm=5,unit='km';
+let ALL=[],filt=[],idx=0,liked=[],hist=[];
+let drag=false,sx,sy,cx=0,tc=null;
+
+// ── CSV LOAD ─────────────────────────────────────────────
+function handleDrop(e){e.preventDefault();document.getElementById('dz').classList.remove('over');const f=e.dataTransfer.files[0];if(f)loadCSV(f);}
+function loadCSV(file){
+  if(!file)return;
+  const ok=document.getElementById('dok');ok.textContent='Reading…';ok.style.color='';
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      ALL=parseCSV(e.target.result);
+      ok.textContent=`✓ ${ALL.length.toLocaleString()} places loaded`;
+      document.getElementById('dz').style.borderColor='rgba(74,222,128,.4)';
+      updateStartBtn();
+    }
+    catch(err){ok.textContent='✗ Could not parse: '+err.message;ok.style.color='var(--nope)';}
+  };
+  r.readAsText(file);
+}
+
+// ── DISTANCE ─────────────────────────────────────────────
+function setUnit(u){unit=u;document.getElementById('bkm').classList.toggle('on',u==='km');document.getElementById('bmi').classList.toggle('on',u==='mi');onDS(document.getElementById('ds').value);}
+function onDS(v){dKm=unit==='km'?+v:+v*1.60934;document.getElementById('dn').innerHTML=`${v} <span>${unit}</span>`;}
+document.getElementById('ds').addEventListener('input',function(){onDS(this.value);});
+
+// ── GPS ──────────────────────────────────────────────────
+function doGPS(){
+  const btn=document.getElementById('gpsbtn'),st=document.getElementById('gst');
+  // Detect file:// protocol – browsers block GPS there
+  if(location.protocol==='file:'){
+    st.className='st err';
+    st.textContent='GPS is blocked on local files. Use city search or paste coordinates below.';
+    return;
+  }
+  if(!navigator.geolocation){st.className='st err';st.textContent='Geolocation not supported. Use search or coordinates.';return;}
+  btn.disabled=true;
+  btn.innerHTML='<div class="dots"><span></span><span></span><span></span></div>';
+  st.className='st';st.textContent='Requesting permission…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      setLoc(pos.coords.latitude,pos.coords.longitude,'GPS');
+      btn.disabled=false;btn.innerHTML='<span>✓</span> Location set';btn.classList.add('success');
+    },
+    err=>{
+      btn.disabled=false;btn.innerHTML='<span>📍</span> Detect my location automatically';
+      st.className='st err';
+      st.textContent={1:'Permission denied — use search or coordinates below.',2:'Position unavailable — use search or coordinates.',3:'Timed out — use search or coordinates.'}[err.code]||err.message;
+    },
+    {timeout:15000,enableHighAccuracy:true}
+  );
+}
+
+// ── SEARCH ───────────────────────────────────────────────
+// Tries Nominatim (accurate, works when online).
+// Falls back to local postcode/city lookup if network unavailable.
+
+function doSearch(){
+  const raw=document.getElementById('ci').value.trim();
+  if(!raw)return;
+  const st=document.getElementById('sst'),sug=document.getElementById('sug');
+  st.className='st';st.textContent='Searching…';
+  sug.style.display='none';sug.innerHTML='';
+
+  // Try Nominatim — no custom headers so CORS works from file:// too
+  const url='https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(raw)+'&format=json&limit=5&addressdetails=1';
+  fetch(url)
+    .then(r=>r.json())
+    .then(data=>{
+      if(!data||!data.length){ localSearch(raw,st,sug); return; }
+      st.textContent='';
+      showSuggestions(data.map(item=>{
+        const a=item.address||{};
+        const primary=[a.house_number,a.road,a.postcode].filter(Boolean).join(' ') ||
+                      [a.postcode,a.suburb||a.neighbourhood||a.city||a.town||a.village].filter(Boolean).join(', ') ||
+                      item.display_name.split(',')[0];
+        const secondary=[a.city||a.town||a.village||a.county||'',a.state||'',a.country||''].filter(Boolean).join(', ');
+        return {lat:+item.lat,lng:+item.lon,primary,secondary};
+      }),sug);
+    })
+    .catch(()=>localSearch(raw,st,sug));
+}
+
+function showSuggestions(results,sug){
+  if(!results.length)return;
+  results.forEach(r=>{
+    const d=document.createElement('div');d.className='sg';
+    d.innerHTML='<span>'+r.primary+'</span><span class="sg-sub">'+r.secondary+'</span>';
+    d.onclick=()=>{ setLoc(r.lat,r.lng,r.primary); sug.style.display='none'; document.getElementById('ci').value=''; };
+    sug.appendChild(d);
+  });
+  sug.style.display='flex';
+}
+
+// ── LOCAL FALLBACK (postcode areas + cities, no network needed) ──
+const UK_AREAS={"EC":[51.517,-0.090],"WC":[51.517,-0.120],"W1":[51.514,-0.143],"W2":[51.514,-0.188],"W8":[51.502,-0.193],"SW1":[51.499,-0.138],"SW3":[51.487,-0.169],"SW5":[51.490,-0.193],"SW6":[51.474,-0.195],"SW7":[51.494,-0.175],"SW10":[51.482,-0.181],"SE1":[51.503,-0.087],"SE5":[51.473,-0.086],"SE11":[51.490,-0.109],"SE15":[51.473,-0.062],"SE17":[51.485,-0.093],"E1":[51.516,-0.063],"E2":[51.528,-0.057],"E3":[51.527,-0.024],"E5":[51.557,-0.054],"E8":[51.540,-0.056],"E9":[51.545,-0.041],"N1":[51.539,-0.094],"N4":[51.564,-0.099],"N5":[51.553,-0.099],"N7":[51.553,-0.120],"N16":[51.562,-0.074],"NW1":[51.535,-0.143],"NW3":[51.553,-0.167],"NW5":[51.553,-0.139],"NW6":[51.536,-0.187],"NW8":[51.529,-0.172],"NW10":[51.536,-0.233],"WC1":[51.522,-0.122],"WC2":[51.512,-0.122],"EC1":[51.523,-0.100],"EC2":[51.517,-0.089],"EC3":[51.511,-0.082],"EC4":[51.513,-0.100],"EH1":[55.951,-3.197],"EH3":[55.957,-3.213],"EH4":[55.961,-3.259],"EH6":[55.976,-3.170],"EH7":[55.960,-3.166],"EH8":[55.945,-3.173],"EH9":[55.936,-3.191],"EH10":[55.920,-3.222],"EH11":[55.936,-3.253],"G1":[55.861,-4.251],"G2":[55.864,-4.262],"G3":[55.868,-4.283],"G4":[55.873,-4.258],"G11":[55.872,-4.312],"G12":[55.875,-4.302],"G20":[55.884,-4.267],"G41":[55.839,-4.281],"G42":[55.835,-4.261],"EH":[55.953,-3.189],"G":[55.860,-4.260],"PA":[55.840,-4.430],"KA":[55.620,-4.500],"ML":[55.780,-3.990],"KY":[56.200,-3.150],"DD":[56.460,-2.970],"AB":[57.150,-2.110],"IV":[57.480,-4.220],"PH":[56.710,-3.840],"FK":[56.120,-3.930],"TD":[55.600,-2.430],"DG":[55.070,-3.600],"BT":[54.600,-5.930],"BS":[51.450,-2.600],"BA":[51.380,-2.360],"TA":[51.020,-3.100],"EX":[50.720,-3.530],"TQ":[50.460,-3.530],"PL":[50.370,-4.140],"TR":[50.160,-5.100],"PO":[50.800,-1.090],"SO":[50.900,-1.400],"BH":[50.720,-1.900],"RG":[51.450,-1.000],"OX":[51.750,-1.260],"GL":[51.860,-2.240],"HR":[52.060,-2.720],"WR":[52.190,-2.220],"B":[52.480,-1.900],"CV":[52.410,-1.510],"LE":[52.640,-1.130],"NN":[52.240,-0.900],"PE":[52.570,-0.240],"CB":[52.210,0.120],"IP":[52.060,1.160],"CO":[51.890,0.900],"NR":[52.630,1.300],"LN":[53.230,-0.540],"NG":[52.950,-1.150],"DE":[52.920,-1.480],"ST":[53.000,-2.180],"SK":[53.400,-2.170],"WA":[53.400,-2.600],"WN":[53.550,-2.640],"M":[53.480,-2.240],"BL":[53.580,-2.430],"OL":[53.540,-2.120],"HX":[53.730,-1.860],"HD":[53.650,-1.780],"BD":[53.800,-1.750],"LS":[53.800,-1.550],"WF":[53.680,-1.500],"YO":[53.960,-1.080],"HU":[53.750,-0.340],"DN":[53.520,-1.130],"S":[53.380,-1.470],"LA":[54.050,-2.800],"BB":[53.750,-2.490],"PR":[53.760,-2.700],"FY":[53.820,-3.050],"L":[53.410,-2.980],"TS":[54.570,-1.230],"DL":[54.520,-1.550],"DH":[54.780,-1.570],"NE":[54.970,-1.600],"SR":[54.900,-1.380],"CA":[54.890,-2.940]};
+
+const CITIES=[["New York",40.7128,-74.0060,"USA"],["Brooklyn",40.6782,-73.9442,"USA"],["Los Angeles",34.0522,-118.2437,"USA"],["Chicago",41.8781,-87.6298,"USA"],["San Francisco",37.7749,-122.4194,"USA"],["Philadelphia",39.9526,-75.1652,"USA"],["Washington DC",38.9072,-77.0369,"USA"],["Nashville",36.1627,-86.7816,"USA"],["Atlanta",33.7490,-84.3880,"USA"],["Austin",30.2672,-97.7431,"USA"],["Denver",39.7392,-104.9903,"USA"],["Seattle",47.6062,-122.3321,"USA"],["Miami",25.7617,-80.1918,"USA"],["Boston",42.3601,-71.0589,"USA"],["New Orleans",29.9511,-90.0715,"USA"],["Louisville",38.2527,-85.7585,"USA"],["Montreal",45.5017,-73.5673,"Canada"],["Toronto",43.6532,-79.3832,"Canada"],["Edinburgh",55.9533,-3.1883,"UK"],["Glasgow",55.8642,-4.2518,"UK"],["London",51.5074,-0.1278,"UK"],["Manchester",53.4808,-2.2426,"UK"],["Liverpool",53.4084,-2.9916,"UK"],["Brighton",50.8225,-0.1372,"UK"],["Leeds",53.8008,-1.5491,"UK"],["Birmingham",52.4862,-1.8904,"UK"],["Bristol",51.4545,-2.5879,"UK"],["Oxford",51.7520,-1.2577,"UK"],["Cambridge",52.2053,0.1218,"UK"],["Dublin",53.3498,-6.2603,"Ireland"],["Cork",51.8985,-8.4756,"Ireland"],["Galway",53.2707,-9.0568,"Ireland"],["Paris",48.8566,2.3522,"France"],["Amsterdam",52.3676,4.9041,"Netherlands"],["Berlin",52.5200,13.4050,"Germany"],["Copenhagen",55.6761,12.5683,"Denmark"],["Milan",45.4642,9.1900,"Italy"],["Lisbon",38.7223,-9.1393,"Portugal"],["Barcelona",41.3851,2.1734,"Spain"],["Madrid",40.4168,-3.7038,"Spain"],["Honolulu",21.3069,-157.8583,"USA"],["Mexico City",19.4326,-99.1332,"Mexico"],["Palm Springs",33.8303,-116.5453,"USA"],["San Diego",32.7157,-117.1611,"USA"],["Rye",50.9497,0.7313,"UK"]];
+
+const US_ZIPS={"100":[40.75,-73.99],"101":[40.75,-73.99],"102":[40.75,-74.00],"103":[40.63,-74.08],"104":[40.85,-73.88],"110":[40.72,-73.79],"111":[40.72,-73.83],"112":[40.65,-73.95],"113":[40.66,-73.94],"114":[40.72,-73.82],"190":[39.95,-75.16],"191":[39.95,-75.16],"200":[38.90,-77.03],"201":[38.86,-77.05],"300":[33.75,-84.39],"301":[33.75,-84.39],"370":[36.17,-86.78],"371":[36.14,-86.79],"400":[38.25,-85.76],"606":[41.88,-87.63],"700":[29.95,-90.07],"787":[30.27,-97.74],"800":[39.74,-104.99],"900":[34.05,-118.24],"902":[33.89,-118.22],"920":[32.72,-117.16],"941":[37.77,-122.42],"967":[21.31,-157.86],"980":[47.61,-122.33]};
+
+function localSearch(raw,st,sug){
+  const q=raw.toUpperCase().replace(/\s+/,' ').trim();
+  const results=[];
+
+  // UK full postcode e.g. "N1 2PL" or "SW1A 2AA"
+  const ukFull=q.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)\s*\d[A-Z]{2}$/);
+  // UK outward only e.g. "N1", "SW1A", "EH3"
+  const ukOut=q.match(/^([A-Z]{1,2}\d{1,2}[A-Z]?)$/);
+  const outward=(ukFull||ukOut)?((ukFull?ukFull[1]:ukOut[1])):'';
+
+  if(outward){
+    // Try progressively shorter keys: "SW1A" -> "SW1" -> "SW"
+    const keys=[outward, outward.replace(/[A-Z]$/,''), outward.replace(/\d+[A-Z]*$/,'')];
+    for(const k of keys){
+      if(UK_AREAS[k]){
+        const names={'EC':'Central London','WC':'Central London','E1':'Whitechapel','E2':'Bethnal Green','E8':'Hackney','E9':'Homerton','N1':'Islington/Canonbury','N4':'Finsbury Park','N5':'Highbury','N7':'Holloway','N16':'Stoke Newington','NW1':'Camden','NW3':'Hampstead','NW5':'Kentish Town','NW6':'Kilburn','SW1':'Westminster','SW3':'Chelsea','SW6':'Fulham','SW7':'South Kensington','SE1':'Southwark/Borough','SE5':'Camberwell','W1':'Mayfair/Soho','W2':'Paddington','WC1':'Bloomsbury','WC2':'Covent Garden','EC1':'Clerkenwell','EC2':'Shoreditch','EH1':'Old Town, Edinburgh','EH3':'New Town, Edinburgh','EH6':'Leith','G1':'City Centre, Glasgow','M':'Manchester','L':'Liverpool','B':'Birmingham','LS':'Leeds'};
+        results.push({lat:UK_AREAS[k][0],lng:UK_AREAS[k][1],primary:q,secondary:(names[k]||k)+', United Kingdom'});
+        break;
+      }
+    }
+  }
+
+  // US zip
+  const usZip=q.match(/^(\d{5})(-\d{4})?$/);
+  if(usZip){ const ll=US_ZIPS[usZip[1].slice(0,3)]; if(ll) results.push({lat:ll[0],lng:ll[1],primary:usZip[1],secondary:'United States'}); }
+
+  // City name
+  const ql=raw.toLowerCase();
+  for(const[name,lat,lng,country] of CITIES){
+    if(name.toLowerCase().includes(ql)||ql.includes(name.toLowerCase()))
+      results.push({lat,lng,primary:name,secondary:country});
+  }
+
+  if(!results.length){
+    st.className='st err';
+    st.textContent='No results. Try full address e.g. "N1 2PL London" or check your connection for live search.';
+    return;
+  }
+  st.className='st err';
+  st.textContent='Offline: showing area centre. For street-level accuracy, go online.';
+  const seen=new Set();
+  showSuggestions(results.filter(r=>!seen.has(r.primary)&&seen.add(r.primary)).slice(0,5),sug);
+}
+
+
+// ── SHARED SET LOCATION ──────────────────────────────────
+function setLoc(lat,lng,src){
+  uLat=lat;uLng=lng;
+  const msg=`✓ Location set: ${src}`;
+  ['gst','sst'].forEach(id=>{const e=document.getElementById(id);e.className='st ok';e.textContent=msg;});
+  updateStartBtn();
+}
+
+function updateStartBtn(){
+  const btn=document.getElementById('stbtn');
+  if(uLat&&ALL.length){
+    btn.innerHTML='<span>▶</span> Start Swiping — '+ALL.length.toLocaleString()+' places ready';
+    btn.style.display='flex';
+    btn.scrollIntoView({behavior:'smooth',block:'nearest'});
+  } else if(uLat&&!ALL.length){
+    btn.innerHTML='<span>▶</span> Start Swiping — upload CSV first';
+    btn.style.display='flex';
+    btn.style.opacity='0.5';
+  } else {
+    btn.style.display='none';
+  }
+}
+
+// ── START ────────────────────────────────────────────────
+function startApp(){
+  if(!uLat){
+    document.getElementById('gst').className='st err';
+    document.getElementById('gst').textContent='Set your location first — search a city above.';
+    document.getElementById('gst').scrollIntoView({behavior:'smooth'});
+    return;
+  }
+  if(!ALL.length){
+    document.getElementById('dok').textContent='⚠ Upload your CSV first!';
+    document.getElementById('dok').style.color='var(--nope)';
+    document.getElementById('dz').scrollIntoView({behavior:'smooth'});
+    return;
+  }
+  const sv=+document.getElementById('ds').value;
+  dKm=unit==='km'?sv:sv*1.60934;
+  document.getElementById('setup').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('hdr').style.display='';
+  document.getElementById('lvs').value=sv;
+  document.getElementById('lvv').textContent=sv+' '+unit;
+  dKm=unit==='km'?sv:sv*1.60934;
+  filterRender();
+}
+function onLS(v){dKm=unit==='km'?+v:+v*1.60934;document.getElementById('lvv').textContent=v+' '+unit;filterRender();}
+
+// ── FILTER ───────────────────────────────────────────────
+function hav(a1,o1,a2,o2){const R=6371,da=(a2-a1)*Math.PI/180,dl=(o2-o1)*Math.PI/180,a=Math.sin(da/2)**2+Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function filterRender(){
+  console.log('filterRender: ALL='+ALL.length+' uLat='+uLat+' uLng='+uLng+' dKm='+dKm);
+  // Log first 3 places to check their coords
+  ALL.slice(0,3).forEach(p=>console.log('  place sample:',p.name,'lat='+p.lat,'lng='+p.lng));
+  filt=ALL.map(p=>({...p,d:hav(uLat,uLng,p.lat,p.lng)})).filter(p=>p.d<=dKm).sort((a,b)=>a.d-b.d);
+  console.log('filtered: '+filt.length+' places within '+dKm+'km');
+  if(filt.length>0) console.log('nearest:',filt[0].name,filt[0].d.toFixed(2)+'km');
+  idx=0;hist=[];render();
+}
+function fmtD(km){if(unit==='mi'){const m=km*.621371;return m<.1?`${(m*5280).toFixed(0)} ft`:`${m.toFixed(1)} mi`;}return km<1?`${(km*1000).toFixed(0)} m`:`${km.toFixed(1)} km`;}
+
+// ── CITY LABEL ───────────────────────────────────────────
+function city(lat,lng){
+  const C=[['Edinburgh',55.87,56.05,-3.35,-3.05],['Glasgow',55.80,55.95,-4.40,-4.10],['London',51.35,51.65,-0.50,0.30],['Manchester',53.35,53.60,-2.40,-2.10],['Liverpool',53.33,53.50,-3.10,-2.85],['Brighton',50.79,50.87,-0.20,-0.05],['Leeds',53.74,53.84,-1.62,-1.50],['Oxford',51.70,51.82,-1.32,-1.20],['Cambridge',52.16,52.24,0.10,0.17],['York',53.94,54.02,-1.12,-1.06],['Dublin',53.28,53.40,-6.40,-6.20],['Cork',51.87,51.93,-8.51,-8.42],['Galway',53.26,53.30,-9.10,-9.02],['Paris',48.79,48.92,2.25,2.46],['Amsterdam',52.33,52.42,4.82,4.97],['Berlin',52.45,52.58,13.30,13.52],['Copenhagen',55.62,55.73,12.50,12.65],['Milan',45.41,45.51,9.11,9.25],['Lisbon',38.68,38.75,-9.23,-9.10],['Barcelona',41.34,41.43,2.10,2.23],['Madrid',40.36,40.46,-3.75,-3.65],['New York',40.56,40.90,-74.05,-73.78],['Philadelphia',39.87,40.14,-75.28,-74.96],['Washington DC',38.80,39.00,-77.12,-76.91],['Nashville',36.10,36.22,-86.90,-86.72],['Atlanta',33.64,33.87,-84.56,-84.29],['Austin',30.14,30.39,-97.87,-97.62],['Louisville',38.17,38.33,-85.85,-85.66],['Chicago',41.64,42.02,-87.87,-87.52],['Denver',39.61,39.84,-105.13,-104.82],['New Orleans',29.88,30.03,-90.13,-89.95],['Montreal',45.43,45.56,-73.64,-73.50],['Mexico City',19.30,19.56,-99.26,-99.07],['Honolulu',21.26,21.38,-157.99,-157.80],['Kailua HI',21.36,21.42,-157.76,-157.71],['SF',37.68,37.83,-122.53,-122.35],['LA',33.90,34.17,-118.52,-118.14],['San Diego',32.63,32.84,-117.29,-116.99],['Palm Springs',33.81,33.88,-116.58,-116.50],['Seattle',47.49,47.73,-122.46,-122.23],['Rye',50.93,50.95,0.73,0.75],['Strasbourg',48.56,48.62,7.72,7.80],['Cologne',50.91,50.99,6.92,7.02],['Basel',47.53,47.59,7.56,7.63]];
+  for(const[n,s,no,w,e]of C)if(lat>=s&&lat<=no&&lng>=w&&lng<=e)return n;
+  if(lat>49&&lat<59&&lng>-8&&lng<2)return 'UK';
+  if(lat>51&&lat<55&&lng>-10&&lng<-6)return 'Ireland';
+  if(lat>35&&lat<71&&lng>-10&&lng<40)return 'Europe';
+  if(lat>14&&lat<24&&lng>-162&&lng<-154)return 'Hawaii';
+  if(lat>14&&lat<25&&lng>-104&&lng<-86)return 'Mexico';
+  if(lat>24&&lat<50&&lng>-125&&lng<-65)return 'USA';
+  return 'Unknown';
+}
+function cat(name){
+  const n=name.toLowerCase();
+  if(/distiller/.test(n))return{e:'🥃',l:'Distillery'};
+  if(/brewery|brew|tap.?room/.test(n))return{e:'🍺',l:'Brewery'};
+  if(/wine|winery|enoteca/.test(n))return{e:'🍷',l:'Wine Bar'};
+  if(/bar|pub|tavern|inn|lounge|saloon|speakeasy|cocktail|tiki|whisky|whiskey|mezcal|tequila|rum/.test(n))return{e:'🍸',l:'Bar'};
+  if(/cafe|coffee|bakery|pastry|bagel|bread|bake|tea|matcha/.test(n))return{e:'☕',l:'Café / Bakery'};
+  if(/restaurant|trattoria|osteria|pizzeria|bistro|brasserie|kitchen|grill|eatery|cantina|taqueria|sushi|ramen|noodle|diner|bbq/.test(n))return{e:'🍽',l:'Restaurant'};
+  if(/beach|park|garden|falls|forest|castle|museum|gallery|monument|viewpoint|botanical|nature|reserve/.test(n))return{e:'🌿',l:'Attraction'};
+  if(/market|farm|butcher|fishmonger|cheese|grocer|deli/.test(n))return{e:'🛒',l:'Market'};
+  if(/vintage|clothing|boutique|fashion|tailor|menswear|shop/.test(n))return{e:'🛍',l:'Shopping'};
+  if(/hotel|hostel|resort/.test(n))return{e:'🏨',l:'Hotel'};
+  return{e:'📍',l:'Place'};
+}
+
+// ── RENDER ───────────────────────────────────────────────
+function render(){
+  const area=document.getElementById('ca'),acts=document.getElementById('acts');
+  // Destroy any existing Leaflet maps before clearing
+  area.querySelectorAll('.pc').forEach(card=>{
+    if(card._leafletMap){card._leafletMap.remove();card._leafletMap=null;}
+  });
+  area.innerHTML='';
+  document.getElementById('sl').textContent=filt.length-idx;
+  document.getElementById('ss').textContent=liked.length;
+  document.getElementById('pg').style.width=(filt.length?idx/filt.length*100:0)+'%';
+  if(!filt.length){
+    // Find the nearest place to suggest a better radius
+    const nearest=ALL.map(p=>({...p,d:hav(uLat,uLng,p.lat,p.lng)})).sort((a,b)=>a.d-b.d)[0];
+    const hint=nearest?`Your nearest saved place is <strong>${nearest.name}</strong> (${fmtD(nearest.d)} away). Try setting the radius to at least ${Math.ceil(nearest.d*(unit==='mi'?.621371:1)*1.2)} ${unit}.`:'No saved places found — make sure your CSV is uploaded.';
+    area.innerHTML=`<div class="ec"><div class="ei">🗺</div><div class="et">No places nearby</div><div class="es">${hint}</div></div>`;
+    acts.style.display='none';renderLiked();return;
+  }
+  if(idx>=filt.length){area.innerHTML=`<div class="ec"><div class="ei">✨</div><div class="et">All done!</div><div class="es">Seen all ${filt.length} places nearby.<br>You saved ${liked.length}.</div><button class="rb" onclick="restart()">Start over</button></div>`;acts.style.display='none';renderLiked();return;}
+  const cnt=Math.min(3,filt.length-idx);
+  for(let l=cnt-1;l>=0;l--){const c=mkCard(filt[idx+l],l);area.appendChild(c);if(l===0){tc=c;attachDrag(c);}}
+  document.getElementById('mb').href=filt[idx].url;
+  acts.style.display='flex';renderLiked();
+}
+function mkCard(p,layer){
+  const ct=cat(p.name),ci=city(p.lat,p.lng);
+  const mapId='map-'+layer+'-'+Date.now();
+  const card=document.createElement('div');card.className=`pc c${layer+1}`;
+  const stamps=layer===0?`<div class="sl" id="stl">YES</div><div class="sn" id="stn">SKIP</div>`:'';
+  card.innerHTML=`
+    <div class="cm">
+      <div id="${mapId}" style="width:100%;height:100%;"></div>
+      <div class="cb">${ci}</div>
+      <div class="db">📍 ${fmtD(p.d)}</div>
+    </div>
+    <div class="cd">
+      <div class="cn">${p.name}</div>
+      <div class="cc">${ct.e} ${ct.l}</div>
+      <div class="cs">${ci} · ${fmtD(p.d)} away</div>
+      <a class="cl" href="${p.url}" target="_blank">Open in Google Maps ↗</a>
+    </div>${stamps}`;
+
+  // Init Leaflet after element is in DOM
+  requestAnimationFrame(()=>{
+    const el=document.getElementById(mapId);
+    if(!el)return;
+
+    // Pick zoom based on distance
+    const zoom = p.d<0.5?17 : p.d<1?16 : p.d<3?15 : p.d<8?14 : p.d<20?13 : 12;
+
+    // Centre map between user and place
+    const midLat=(p.lat+uLat)/2, midLng=(p.lng+uLng)/2;
+
+    const map=L.map(el,{
+      center:[midLat,midLng],
+      zoom,
+      zoomControl:false,
+      attributionControl:false,
+      dragging:false,       // disable pan — card drag handles touch
+      scrollWheelZoom:false,
+      doubleClickZoom:false,
+      touchZoom:false,
+      boxZoom:false,
+      keyboard:false,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19,
+    }).addTo(map);
+
+    // User location marker (blue dot)
+    const userIcon=L.divIcon({
+      className:'',
+      html:`<div style="width:14px;height:14px;border-radius:50%;background:#60a5fa;border:2px solid #fff;box-shadow:0 0 8px rgba(96,165,250,.8);"></div>`,
+      iconSize:[14,14],iconAnchor:[7,7]
+    });
+    L.marker([uLat,uLng],{icon:userIcon,interactive:false}).addTo(map);
+
+    // Place marker (gold pin)
+    const placeIcon=L.divIcon({
+      className:'',
+      html:`<div style="position:relative;width:22px;height:30px;">
+        <div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#e8c97a;box-shadow:0 0 12px rgba(232,201,122,.7);border:2px solid rgba(0,0,0,.3);"></div>
+        <div style="position:absolute;top:4px;left:4px;width:10px;height:10px;border-radius:50%;background:rgba(0,0,0,.35);transform:rotate(-45deg);"></div>
+      </div>`,
+      iconSize:[22,30],iconAnchor:[11,28]
+    });
+    L.marker([p.lat,p.lng],{icon:placeIcon,interactive:false}).addTo(map);
+
+    // Dashed line connecting them
+    if(p.d>0.1){
+      L.polyline([[uLat,uLng],[p.lat,p.lng]],{
+        color:'rgba(232,201,122,0.5)',weight:1.5,dashArray:'5,5'
+      }).addTo(map);
+    }
+
+    // Fit bounds to show both points if far apart
+    if(p.d>0.5){
+      map.fitBounds([[uLat,uLng],[p.lat,p.lng]],{padding:[30,30]});
+    }
+
+    // Store map ref so we can clean up
+    card._leafletMap=map;
+  });
+
+  return card;
+}
+
+// ── DRAG (robust touch + mouse) ──────────────────────────
+let vx=0,lastX=0,lastT=0; // velocity tracking
+
+function attachDrag(card){
+  card.addEventListener('mousedown',ds,{passive:false});
+  card.addEventListener('touchstart',ds,{passive:true});
+}
+
+function ds(e){
+  // Ignore right-clicks
+  if(e.button&&e.button!==0)return;
+  drag=true;cx=0;vx=0;
+  sx=e.touches?e.touches[0].clientX:e.clientX;
+  sy=e.touches?e.touches[0].clientY:e.clientY;
+  lastX=sx; lastT=Date.now();
+  if(tc)tc.style.transition='none';
+  document.addEventListener('mousemove',dm,{passive:false});
+  document.addEventListener('mouseup',de,{passive:false});
+  // Non-passive so we can preventDefault and stop vertical scroll during horizontal swipe
+  document.addEventListener('touchmove',dm,{passive:false});
+  document.addEventListener('touchend',de,{passive:false});
+}
+
+function dm(e){
+  if(!drag)return;
+  const clientX=e.touches?e.touches[0].clientX:e.clientX;
+  const clientY=e.touches?e.touches[0].clientY:e.clientY;
+  cx=clientX-sx;
+  const dy=clientY-sy;
+
+  // If moving more horizontally than vertically, prevent scroll
+  if(Math.abs(cx)>Math.abs(dy)&&e.cancelable) e.preventDefault();
+
+  // Track velocity
+  const now=Date.now(),dt=now-lastT;
+  if(dt>0) vx=(clientX-lastX)/dt;
+  lastX=clientX; lastT=now;
+
+  const cy=dy*0.25;
+  if(tc) tc.style.transform=`translateX(${cx}px) translateY(${cy}px) rotate(${cx*0.06}deg)`;
+
+  const sl=document.getElementById('stl'),sn=document.getElementById('stn');
+  if(sl) sl.style.opacity=cx>60?Math.min((cx-60)/80,1):0;
+  if(sn) sn.style.opacity=cx<-60?Math.min((-cx-60)/80,1):0;
+}
+
+function de(e){
+  if(!drag)return;
+  drag=false;
+  document.removeEventListener('mousemove',dm);
+  document.removeEventListener('mouseup',de);
+  document.removeEventListener('touchmove',dm);
+  document.removeEventListener('touchend',de);
+  if(!tc){tc=document.querySelector('.pc.c1');if(!tc)return;}
+  tc.style.transition='';
+
+  // Trigger swipe if: dragged far enough OR flicked fast enough
+  const DIST_THRESHOLD=80;   // px
+  const VEL_THRESHOLD=0.4;   // px/ms
+
+  if(cx>DIST_THRESHOLD||(cx>30&&vx>VEL_THRESHOLD)){
+    swipe('right');
+  } else if(cx<-DIST_THRESHOLD||(cx<-30&&vx<-VEL_THRESHOLD)){
+    swipe('left');
+  } else {
+    // Snap back
+    tc.style.transition='transform .25s ease';
+    tc.style.transform='';
+    const sl=document.getElementById('stl'),sn=document.getElementById('stn');
+    if(sl)sl.style.opacity=0;
+    if(sn)sn.style.opacity=0;
+  }
+}
+
+function swipe(dir){if(idx>=filt.length)return;const c=document.querySelector('.pc.c1');if(!c)return;const p=filt[idx];c.style.transition='transform .3s ease,opacity .3s ease';c.classList.add(dir==='right'?'fr':'fl');if(dir==='right')liked.push(p);hist.push({idx,dir,p:dir==='right'?p:null});setTimeout(()=>{idx++;render();},300);}
+function undo(){if(!hist.length)return;const l=hist.pop();if(l.p)liked=liked.filter(x=>x.name!==l.p.name);idx=l.idx;render();}
+function restart(){idx=0;render();}
+function renderLiked(){const w=document.getElementById('lw'),ch=document.getElementById('lch'),lc=document.getElementById('lc');if(!liked.length){w.style.display='none';return;}w.style.display='block';lc.textContent=`${liked.length} place${liked.length!==1?'s':''}`;ch.innerHTML=liked.map(p=>`<a class="ch" href="${p.url}" target="_blank"><span class="chd"></span>${p.name}</a>`).join('');}
+</script>
+</body>
+</html>
